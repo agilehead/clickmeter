@@ -52,6 +52,18 @@ echo "${bootstrap}" | rg -q "\"write_key\"" && echo "${bootstrap}" | rg -q "\"re
 write_key="$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(d.write_key);' <<<"${bootstrap}")"
 read_key="$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync(0,"utf8"));process.stdout.write(d.read_key);' <<<"${bootstrap}")"
 
+echo "=== ingest preflight (CORS) ==="
+preflight="$(
+  curl --silent --fail --include \
+    -X OPTIONS \
+    -H "origin: https://example.com" \
+    -H "access-control-request-method: POST" \
+    -H "access-control-request-headers: authorization, content-type" \
+    "http://localhost:8085/v1/events"
+)"
+echo "${preflight}" | rg -qi "^HTTP/.* 204"
+echo "${preflight}" | rg -qi "^Access-Control-Allow-Origin: https://example.com"
+
 echo "=== ingest pageview ==="
 curl --silent --fail \
   -H "origin: https://example.com" \
