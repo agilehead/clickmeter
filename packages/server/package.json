@@ -1,0 +1,11 @@
+{
+  "name": "@clickmeter/server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "cd ../.. && ${TSONIC_BIN:-tsonic} restore --project server && cd packages/server && tsc -p tsconfig.json",
+    "build": "cd ../.. && ${TSONIC_BIN:-tsonic} restore --project server && ${TSONIC_BIN:-tsonic} generate --project server && bash ./scripts/generate-ef-compiled-model.sh && ${TSONIC_BIN:-tsonic} build --no-generate --project server",
+    "dev": "cd ../.. && ${TSONIC_BIN:-tsonic} restore --project server && ${TSONIC_BIN:-tsonic} generate --project server && bash ./scripts/generate-ef-compiled-model.sh && ${TSONIC_BIN:-tsonic} run --no-generate --project server"
+  }
+}
