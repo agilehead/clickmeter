@@ -1,0 +1,29 @@
+{
+  "$schema": "https://tsonic.org/schema/workspace/v1.json",
+  "dotnetVersion": "net10.0",
+  "dotnet": {
+    "msbuildProperties": {
+      "InterceptorsNamespaces": "$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors"
+    },
+    "frameworkReferences": [
+      {
+        "id": "Microsoft.AspNetCore.App",
+        "types": "@tsonic/aspnetcore"
+      }
+    ],
+    "packageReferences": [
+      {
+        "id": "Microsoft.EntityFrameworkCore.Sqlite",
+        "version": "10.0.2"
+      },
+      {
+        "id": "Microsoft.EntityFrameworkCore",
+        "version": "10.0.2"
+      },
+      {
+        "id": "Microsoft.EntityFrameworkCore.Design",
+        "version": "10.0.2"
+      }
+    ]
+  }
+}

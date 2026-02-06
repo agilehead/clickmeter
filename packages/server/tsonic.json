@@ -1,0 +1,18 @@
+{
+  "$schema": "https://tsonic.org/schema/v1.json",
+  "rootNamespace": "Clickmeter.Server",
+  "entryPoint": "src/app.ts",
+  "sourceRoot": "src",
+  "outputDirectory": "generated",
+  "outputName": "clickmeter",
+  "optimize": "speed",
+  "output": {
+    "nativeAot": true,
+    "trimmed": true,
+    "singleFile": true
+  },
+  "buildOptions": {
+    "stripSymbols": true,
+    "invariantGlobalization": true
+  }
+}

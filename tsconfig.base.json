@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "noLib": true,
+    "moduleResolution": "nodenext",
+    "module": "nodenext",
+    "target": "ES2022",
+    "preserveSymlinks": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": false,
+    "checkJs": false,
+    "noEmit": true,
+    "resolveJsonModule": false,
+    "verbatimModuleSyntax": false,
+    "allowImportingTsExtensions": true,
+    "types": []
+  }
+}
