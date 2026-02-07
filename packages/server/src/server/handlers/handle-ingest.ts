@@ -2,7 +2,6 @@ import { int, long } from "@tsonic/core/types.js";
 import { DateTimeOffset } from "@tsonic/dotnet/System.js";
 import { JsonElement, JsonValueKind } from "@tsonic/dotnet/System.Text.Json.js";
 import { List } from "@tsonic/dotnet/System.Collections.Generic.js";
-import { Task, TaskExtensions } from "@tsonic/dotnet/System.Threading.Tasks.js";
 
 import { HttpContext } from "@tsonic/aspnetcore/Microsoft.AspNetCore.Http.js";
 
@@ -13,6 +12,7 @@ import { jsonStringify } from "../../json/json-stringify.ts";
 import { parseJsonRoot } from "../../json/parse-json-root.ts";
 import { stringifyStringRecord } from "../../json/stringify-string-record.ts";
 import type { InsertEvent } from "../../db/clickmeter-db.ts";
+import type { KeyRecord } from "../../db/clickmeter-db.ts";
 import { getBearerToken } from "../lib/get-bearer-token.ts";
 import { getOrigin } from "../lib/get-origin.ts";
 import { serializeError } from "../lib/serialize-error.ts";
@@ -103,7 +103,7 @@ const serializeIngestAck = (accepted: int, rejected: int, deduped: int, errors: 
   });
 };
 
-export const handleIngest = (app: AppContext, ctx: HttpContext): Task => {
+export const handleIngest = (app: AppContext, ctx: HttpContext): PromiseLike<void> => {
   const { db } = app;
 
   const token = getBearerToken(ctx);
@@ -114,159 +114,229 @@ export const handleIngest = (app: AppContext, ctx: HttpContext): Task => {
     return writeJson(ctx.Response, 401, serializeError("unauthorized", "Invalid write key"));
   }
 
-  return TaskExtensions.Unwrap(
-    readRequestBodyAsync(ctx).ContinueWith<Task>((t, _state) => {
-      const root = parseJsonRoot(t.Result);
-      if (root.ValueKind !== JsonValueKind.Object) {
-        return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid JSON envelope"));
-      }
+  return handleIngestBody(app, ctx, key);
+};
 
-      let schemaVersion: int = 0;
-      try {
-        schemaVersion = root.GetProperty("schema_version").GetInt32();
-      } catch (_err) {
-        return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid JSON envelope"));
-      }
+const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecord): Promise<void> => {
+  const { db } = app;
 
-      const propertyId = getOptionalString(root, "property_id");
-      if (propertyId === undefined || propertyId.Trim() === "") {
-        return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid JSON envelope"));
-      }
+  const body = await readRequestBodyAsync(ctx);
+  const root = parseJsonRoot(body);
+  if (root.ValueKind !== JsonValueKind.Object) {
+    await writeJson(
+      ctx.Response,
+      400,
+      serializeError("invalid_request", "Invalid JSON envelope")
+    );
+    return;
+  }
 
-      const propertyIdTrimmed = propertyId.Trim();
+  let schemaVersion: int = 0;
+  try {
+    schemaVersion = root.GetProperty("schema_version").GetInt32();
+  } catch (_err) {
+    await writeJson(
+      ctx.Response,
+      400,
+      serializeError("invalid_request", "Invalid JSON envelope")
+    );
+    return;
+  }
 
-      if (propertyIdTrimmed !== key.property_id) {
-        return writeJson(ctx.Response, 403, serializeError("forbidden", "Key does not match property_id"));
-      }
+  const propertyId = getOptionalString(root, "property_id");
+  if (propertyId === undefined || propertyId.Trim() === "") {
+    await writeJson(
+      ctx.Response,
+      400,
+      serializeError("invalid_request", "Invalid JSON envelope")
+    );
+    return;
+  }
 
-      const property = db.getProperty(propertyIdTrimmed);
-      if (!property) {
-        return writeJson(ctx.Response, 404, serializeError("not_found", "Unknown property_id"));
-      }
+  const propertyIdTrimmed = propertyId.Trim();
 
-      const origin = getOrigin(ctx);
-      if (origin) {
-        if (property.allowed_origins.Length > 0) {
-          let ok = false;
-          for (let originIndex = 0; originIndex < property.allowed_origins.Length; originIndex++) {
-            if (property.allowed_origins[originIndex] === origin) {
-              ok = true;
-              break;
-            }
-          }
-          if (!ok) {
-            return writeJson(ctx.Response, 403, serializeError("origin_forbidden", "Origin not allowed for this property"));
-          }
+  if (propertyIdTrimmed !== key.property_id) {
+    await writeJson(
+      ctx.Response,
+      403,
+      serializeError("forbidden", "Key does not match property_id")
+    );
+    return;
+  }
+
+  const property = db.getProperty(propertyIdTrimmed);
+  if (!property) {
+    await writeJson(
+      ctx.Response,
+      404,
+      serializeError("not_found", "Unknown property_id")
+    );
+    return;
+  }
+
+  const origin = getOrigin(ctx);
+  if (origin) {
+    if (property.allowed_origins.Length > 0) {
+      let ok = false;
+      for (
+        let originIndex = 0;
+        originIndex < property.allowed_origins.Length;
+        originIndex++
+      ) {
+        if (property.allowed_origins[originIndex] === origin) {
+          ok = true;
+          break;
         }
-        setCorsHeaders(ctx, origin);
+      }
+      if (!ok) {
+        await writeJson(
+          ctx.Response,
+          403,
+          serializeError("origin_forbidden", "Origin not allowed for this property")
+        );
+        return;
+      }
+    }
+    setCorsHeaders(ctx, origin);
+  }
+
+  if (schemaVersion !== 1) {
+    await writeJson(
+      ctx.Response,
+      400,
+      serializeError("unsupported_schema", "Only schema_version=1 is supported")
+    );
+    return;
+  }
+
+  let eventsEl = new JsonElement();
+  try {
+    eventsEl = root.GetProperty("events");
+  } catch (_missing) {
+    await writeJson(
+      ctx.Response,
+      400,
+      serializeError("invalid_request", "Invalid JSON envelope: missing events")
+    );
+    return;
+  }
+  if (eventsEl.ValueKind !== JsonValueKind.Array) {
+    await writeJson(
+      ctx.Response,
+      400,
+      serializeError("invalid_request", "Invalid JSON envelope: missing events")
+    );
+    return;
+  }
+
+  const errors = new List<IngestErrorItem>();
+  const inserts = new List<InsertEvent>();
+  let rejected: int = 0;
+
+  const scopeObj = getOptionalObject(root, "scope");
+  const envelopeScopeType = getOptionalString(scopeObj, "type");
+  const envelopeScopeId = getOptionalString(scopeObj, "id");
+  const envelopeDims = readStringRecord(getOptionalObject(root, "dims"));
+
+  const receivedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+  const ua = ctx.Request.Headers.UserAgent.ToString();
+  const userAgent = ua.Trim() === "" ? undefined : ua;
+  const ip = ctx.Connection.RemoteIpAddress?.ToString();
+
+  const ev = eventsEl.EnumerateArray();
+  let eventIndex = 0;
+  try {
+    while (ev.MoveNext()) {
+      const e = ev.Current;
+      if (e.ValueKind !== JsonValueKind.Object) {
+        errors.Add({
+          index: eventIndex as int,
+          code: "invalid_event",
+          message: "Event must be an object",
+        });
+        rejected = rejected + 1;
+        eventIndex++;
+        continue;
       }
 
-      if (schemaVersion !== 1) {
-        return writeJson(ctx.Response, 400, serializeError("unsupported_schema", "Only schema_version=1 is supported"));
+      const eventId = getOptionalString(e, "event_id");
+      const type = getOptionalString(e, "type");
+      if (
+        eventId === undefined ||
+        eventId.Trim() === "" ||
+        type === undefined ||
+        type.Trim() === ""
+      ) {
+        errors.Add({
+          index: eventIndex as int,
+          code: "invalid_event",
+          message: "Missing event_id or type",
+        });
+        rejected = rejected + 1;
+        eventIndex++;
+        continue;
       }
 
-      let eventsEl = new JsonElement();
-      try {
-        eventsEl = root.GetProperty("events");
-      } catch (_missing) {
-        return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid JSON envelope: missing events"));
-      }
-      if (eventsEl.ValueKind !== JsonValueKind.Array) {
-        return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid JSON envelope: missing events"));
-      }
+      const tsIso = getOptionalString(e, "ts");
+      const ts = parseIsoOrNowUnixMs(tsIso);
 
-      const errors = new List<IngestErrorItem>();
-      const inserts = new List<InsertEvent>();
-      let rejected: int = 0;
+      const eventScope = getOptionalObject(e, "scope");
+      const scopeType = getOptionalString(eventScope, "type") ?? envelopeScopeType;
+      const scopeId = getOptionalString(eventScope, "id") ?? envelopeScopeId;
 
-      const scopeObj = getOptionalObject(root, "scope");
-      const envelopeScopeType = getOptionalString(scopeObj, "type");
-      const envelopeScopeId = getOptionalString(scopeObj, "id");
-      const envelopeDims = readStringRecord(getOptionalObject(root, "dims"));
+      const eventDims = readStringRecord(getOptionalObject(e, "dims"));
+      const mergedDims = mergeDims(envelopeDims, eventDims);
+      const dimsJson = mergedDims ? stringifyStringRecord(mergedDims) : undefined;
 
-      const receivedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+      const data = readStringRecord(getOptionalObject(e, "data"));
+      const dataJson = data ? stringifyStringRecord(data) : undefined;
 
-      const ua = ctx.Request.Headers.UserAgent.ToString();
-      const userAgent = ua.Trim() === "" ? undefined : ua;
-      const ip = ctx.Connection.RemoteIpAddress?.ToString();
+      const context = getOptionalObject(e, "context");
+      const page = getOptionalObject(context, "page");
+      const campaign = getOptionalObject(context, "campaign");
+      const utm = getOptionalObject(campaign, "utm");
 
-      const ev = eventsEl.EnumerateArray();
-      let eventIndex = 0;
-      try {
-        while (ev.MoveNext()) {
-          const e = ev.Current;
-          if (e.ValueKind !== JsonValueKind.Object) {
-            errors.Add({ index: eventIndex as int, code: "invalid_event", message: "Event must be an object" });
-            rejected = rejected + 1;
-            eventIndex++;
-            continue;
-          }
+      const identity = getOptionalObject(e, "identity");
 
-          const eventId = getOptionalString(e, "event_id");
-          const type = getOptionalString(e, "type");
-          if (eventId === undefined || eventId.Trim() === "" || type === undefined || type.Trim() === "") {
-            errors.Add({ index: eventIndex as int, code: "invalid_event", message: "Missing event_id or type" });
-            rejected = rejected + 1;
-            eventIndex++;
-            continue;
-          }
+      inserts.Add({
+        event_id: eventId.Trim(),
+        type: type.Trim(),
+        ts,
+        received_at: receivedAt,
+        url: getOptionalString(page, "url"),
+        path: getOptionalString(page, "path"),
+        title: getOptionalString(page, "title"),
+        referrer: getOptionalString(page, "referrer"),
+        campaign_id: getOptionalString(campaign, "campaign_id"),
+        utm_source: getOptionalString(utm, "source"),
+        utm_medium: getOptionalString(utm, "medium"),
+        utm_campaign: getOptionalString(utm, "campaign"),
+        visitor_id: getOptionalString(identity, "visitor_id"),
+        session_id: getOptionalString(identity, "session_id"),
+        user_id_hash: getOptionalString(identity, "user_id_hash"),
+        scope_type: scopeType,
+        scope_id: scopeId,
+        data_json: dataJson,
+        dims: mergedDims,
+        dims_json: dimsJson,
+        user_agent: userAgent,
+        ip: ip ?? undefined,
+      });
 
-          const tsIso = getOptionalString(e, "ts");
-          const ts = parseIsoOrNowUnixMs(tsIso);
+      eventIndex++;
+    }
+  } finally {
+    ev.Dispose();
+  }
 
-          const eventScope = getOptionalObject(e, "scope");
-          const scopeType = getOptionalString(eventScope, "type") ?? envelopeScopeType;
-          const scopeId = getOptionalString(eventScope, "id") ?? envelopeScopeId;
+  const result = db.insertEvents(propertyIdTrimmed, inserts.ToArray());
 
-          const eventDims = readStringRecord(getOptionalObject(e, "dims"));
-          const mergedDims = mergeDims(envelopeDims, eventDims);
-          const dimsJson = mergedDims ? stringifyStringRecord(mergedDims) : undefined;
-
-          const data = readStringRecord(getOptionalObject(e, "data"));
-          const dataJson = data ? stringifyStringRecord(data) : undefined;
-
-          const context = getOptionalObject(e, "context");
-          const page = getOptionalObject(context, "page");
-          const campaign = getOptionalObject(context, "campaign");
-          const utm = getOptionalObject(campaign, "utm");
-
-          const identity = getOptionalObject(e, "identity");
-
-          inserts.Add({
-            event_id: eventId.Trim(),
-            type: type.Trim(),
-            ts,
-            received_at: receivedAt,
-            url: getOptionalString(page, "url"),
-            path: getOptionalString(page, "path"),
-            title: getOptionalString(page, "title"),
-            referrer: getOptionalString(page, "referrer"),
-            campaign_id: getOptionalString(campaign, "campaign_id"),
-            utm_source: getOptionalString(utm, "source"),
-            utm_medium: getOptionalString(utm, "medium"),
-            utm_campaign: getOptionalString(utm, "campaign"),
-            visitor_id: getOptionalString(identity, "visitor_id"),
-            session_id: getOptionalString(identity, "session_id"),
-            user_id_hash: getOptionalString(identity, "user_id_hash"),
-            scope_type: scopeType,
-            scope_id: scopeId,
-            data_json: dataJson,
-            dims: mergedDims,
-            dims_json: dimsJson,
-            user_agent: userAgent,
-            ip: ip ?? undefined,
-          });
-
-          eventIndex++;
-        }
-      } finally {
-        ev.Dispose();
-      }
-
-      const result = db.insertEvents(propertyIdTrimmed, inserts.ToArray());
-
-      const ackBody = serializeIngestAck(result.accepted, rejected, result.deduped, errors.ToArray());
-      return writeJson(ctx.Response, 200, ackBody);
-    }, undefined)
+  const ackBody = serializeIngestAck(
+    result.accepted,
+    rejected,
+    result.deduped,
+    errors.ToArray()
   );
+  await writeJson(ctx.Response, 200, ackBody);
 };
