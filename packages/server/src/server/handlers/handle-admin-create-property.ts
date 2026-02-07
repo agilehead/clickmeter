@@ -1,6 +1,5 @@
 import { JsonValueKind } from "@tsonic/dotnet/System.Text.Json.js";
 import { List } from "@tsonic/dotnet/System.Collections.Generic.js";
-import { Task, TaskExtensions } from "@tsonic/dotnet/System.Threading.Tasks.js";
 
 import { HttpContext } from "@tsonic/aspnetcore/Microsoft.AspNetCore.Http.js";
 
@@ -64,36 +63,49 @@ const serializeAdminCreatePropertyResponse = (res: AdminCreatePropertyResponse):
   });
 };
 
-export const handleAdminCreateProperty = (app: AppContext, ctx: HttpContext): Task => {
+export const handleAdminCreateProperty = async (app: AppContext, ctx: HttpContext): Promise<void> => {
   const { db, adminToken } = app;
 
   if (!adminToken || adminToken.Trim() === "") {
-    return writeJson(ctx.Response, 500, serializeError("misconfigured", "CLICKMETER_ADMIN_TOKEN is not set"));
+    await writeJson(ctx.Response, 500, serializeError("misconfigured", "CLICKMETER_ADMIN_TOKEN is not set"));
+    return;
   }
 
   const token = getBearerToken(ctx);
   if (!token || token !== adminToken) {
-    return writeJson(ctx.Response, 401, serializeError("unauthorized", "Invalid admin token"));
+    await writeJson(ctx.Response, 401, serializeError("unauthorized", "Invalid admin token"));
+    return;
   }
 
-  return TaskExtensions.Unwrap(
-    readRequestBodyAsync(ctx).ContinueWith<Task>((t, _state) => {
-      const req = parseAdminCreatePropertyPayload(t.Result);
-      if (!req) {
-        return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid JSON: expected {\"property_id\": \"...\"}"));
-      }
+  const body = await readRequestBodyAsync(ctx);
+  const req = parseAdminCreatePropertyPayload(body);
+  if (!req) {
+    await writeJson(
+      ctx.Response,
+      400,
+      serializeError(
+        "invalid_request",
+        "Invalid JSON: expected {\"property_id\": \"...\"}"
+      )
+    );
+    return;
+  }
 
-      const created = db.createProperty(req.property_id, req.allowed_origins);
-      if (created === undefined) {
-        return writeJson(ctx.Response, 409, serializeError("conflict", "property_id already exists"));
-      }
+  const created = db.createProperty(req.property_id, req.allowed_origins);
+  if (created === undefined) {
+    await writeJson(
+      ctx.Response,
+      409,
+      serializeError("conflict", "property_id already exists")
+    );
+    return;
+  }
 
-      const res: AdminCreatePropertyResponse = {
-        property_id: created.property_id,
-        write_key: created.write_key,
-        read_key: created.read_key,
-      };
-      return writeJson(ctx.Response, 201, serializeAdminCreatePropertyResponse(res));
-    }, undefined)
-  );
+  const res: AdminCreatePropertyResponse = {
+    property_id: created.property_id,
+    write_key: created.write_key,
+    read_key: created.read_key,
+  };
+
+  await writeJson(ctx.Response, 201, serializeAdminCreatePropertyResponse(res));
 };
