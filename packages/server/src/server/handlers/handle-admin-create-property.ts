@@ -91,7 +91,7 @@ export const handleAdminCreateProperty = async (app: AppContext, ctx: HttpContex
     return;
   }
 
-  const created = db.createProperty(req.property_id, req.allowed_origins);
+  const created = await db.createProperty(req.property_id, req.allowed_origins);
   if (created === undefined) {
     await writeJson(
       ctx.Response,

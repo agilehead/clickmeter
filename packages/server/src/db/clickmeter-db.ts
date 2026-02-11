@@ -1,15 +1,12 @@
 import { int, long } from "@tsonic/core/types.js";
-import { asinterface } from "@tsonic/core/lang.js";
 import { Convert, DateTimeOffset, Guid } from "@tsonic/dotnet/System.js";
 import { Encoding } from "@tsonic/dotnet/System.Text.js";
 import { SHA256 } from "@tsonic/dotnet/System.Security.Cryptography.js";
 import { List } from "@tsonic/dotnet/System.Collections.Generic.js";
-import type { IQueryable } from "@tsonic/dotnet/System.Linq.js";
-import type { ExtensionMethods as Linq } from "@tsonic/dotnet/System.Linq.js";
 
 import type { ClickmeterDbContext } from "./context.ts";
 import { ClickmeterDbContext as ClickmeterDbContextCtor } from "./context.ts";
-import type { ApiKeyKind, PropertyRow as PropertyEntity, ApiKey as ApiKeyEntity, Event as EventEntity, EventDim as EventDimEntity } from "./entities.ts";
+import type { ApiKeyKind } from "./entities.ts";
 import { ApiKey, Event, EventDim, PropertyRow } from "./entities.ts";
 import type { DbContextOptions } from "@tsonic/efcore/Microsoft.EntityFrameworkCore.js";
 import { createDbOptions } from "./options.ts";
@@ -99,8 +96,6 @@ export type MetricsResult = {
   readonly totals: MetricsTotals;
 };
 
-type LinqQ<T> = Linq<IQueryable<T>>;
-
 const EMPTY_STRING_ARRAY: string[] = [];
 
 const nowUnixMs = (): long => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -126,15 +121,15 @@ export class ClickmeterDb {
     return new ClickmeterDbContextCtor(this.options);
   }
 
-  getProperty(propertyId: string): PropertyRecord | undefined {
+  async getProperty(propertyId: string): Promise<PropertyRecord | undefined> {
     const db = this.open();
     try {
       const db0 = db;
       const propertyId0 = propertyId;
 
-      const row = asinterface<LinqQ<PropertyEntity>>(db0.Properties)
+      const row = await db0.Properties
         .Where((p) => p.PropertyId === propertyId0)
-        .FirstOrDefault();
+        .FirstOrDefaultAsync();
       if (!row) return undefined;
 
       const allowed = parseStringArray(row.AllowedOriginsJson) ?? EMPTY_STRING_ARRAY;
@@ -144,16 +139,14 @@ export class ClickmeterDb {
     }
   }
 
-  lookupKey(token: string): KeyRecord | undefined {
+  async lookupKey(token: string): Promise<KeyRecord | undefined> {
     const db = this.open();
     try {
       const hash = sha256Hex(token);
       const db0 = db;
       const hash0 = hash;
 
-      const key = asinterface<LinqQ<ApiKeyEntity>>(db0.ApiKeys)
-        .Where((k) => k.KeyHash === hash0)
-        .FirstOrDefault();
+      const key = await db0.ApiKeys.Where((k) => k.KeyHash === hash0).FirstOrDefaultAsync();
       if (!key) return undefined;
       if (key.RevokedAt !== undefined) return undefined;
       return { property_id: key.PropertyId, kind: key.Kind };
@@ -162,15 +155,18 @@ export class ClickmeterDb {
     }
   }
 
-  createProperty(propertyId: string, allowedOrigins: readonly string[]): CreatePropertyResult | undefined {
+  async createProperty(
+    propertyId: string,
+    allowedOrigins: readonly string[]
+  ): Promise<CreatePropertyResult | undefined> {
     const db = this.open();
     try {
       const db0 = db;
       const propertyId0 = propertyId;
 
-      const existing = asinterface<LinqQ<PropertyEntity>>(db0.Properties)
+      const existing = await db0.Properties
         .Where((p) => p.PropertyId === propertyId0)
-        .FirstOrDefault();
+        .FirstOrDefaultAsync();
       if (existing) return undefined;
 
       const normalized = new List<string>();
@@ -205,14 +201,17 @@ export class ClickmeterDb {
       db.ApiKeys.Add(write);
       db.ApiKeys.Add(read);
 
-      db.SaveChanges();
+      await db.SaveChangesAsync();
       return { property_id: propertyId, write_key: writeKey, read_key: readKey };
     } finally {
       db.Dispose();
     }
   }
 
-  insertEvents(propertyId: string, events: readonly InsertEvent[]): IngestInsertResult {
+  async insertEvents(
+    propertyId: string,
+    events: readonly InsertEvent[]
+  ): Promise<IngestInsertResult> {
     if (events.Length === 0) return { accepted: 0, deduped: 0 };
 
     let accepted: int = 0;
@@ -227,9 +226,9 @@ export class ClickmeterDb {
         const e = events[i];
 
         const eventId0 = e.event_id;
-        const exists = asinterface<LinqQ<EventEntity>>(db0.Events)
+        const exists = await db0.Events
           .Where((row) => row.PropertyId === propertyId0 && row.EventId === eventId0)
-          .Any();
+          .AnyAsync();
         if (exists) {
           deduped++;
           continue;
@@ -287,44 +286,58 @@ export class ClickmeterDb {
         }
       }
 
-      db.SaveChanges();
+      await db.SaveChangesAsync();
       return { accepted, deduped };
     } finally {
       db.Dispose();
     }
   }
 
-  queryTotals(propertyId: string, fromMs: long, toMsExclusive: long): OverviewTotals {
+  async queryTotals(
+    propertyId: string,
+    fromMs: long,
+    toMsExclusive: long
+  ): Promise<OverviewTotals> {
     const db = this.open();
     try {
-      return runQueryTotals(db, propertyId, fromMs, toMsExclusive);
+      return await runQueryTotals(db, propertyId, fromMs, toMsExclusive);
     } finally {
       db.Dispose();
     }
   }
 
-  queryTopPaths(propertyId: string, fromMs: long, toMsExclusive: long, limit: int): TopRow[] {
+  async queryTopPaths(
+    propertyId: string,
+    fromMs: long,
+    toMsExclusive: long,
+    limit: int
+  ): Promise<TopRow[]> {
     const db = this.open();
     try {
-      return runQueryTopPaths(db, propertyId, fromMs, toMsExclusive, limit);
+      return await runQueryTopPaths(db, propertyId, fromMs, toMsExclusive, limit);
     } finally {
       db.Dispose();
     }
   }
 
-  queryTopCampaigns(propertyId: string, fromMs: long, toMsExclusive: long, limit: int): TopRow[] {
+  async queryTopCampaigns(
+    propertyId: string,
+    fromMs: long,
+    toMsExclusive: long,
+    limit: int
+  ): Promise<TopRow[]> {
     const db = this.open();
     try {
-      return runQueryTopCampaigns(db, propertyId, fromMs, toMsExclusive, limit);
+      return await runQueryTopCampaigns(db, propertyId, fromMs, toMsExclusive, limit);
     } finally {
       db.Dispose();
     }
   }
 
-  queryMetrics(propertyId: string, query: MetricsQuery): MetricsResult {
+  async queryMetrics(propertyId: string, query: MetricsQuery): Promise<MetricsResult> {
     const db = this.open();
     try {
-      return runQueryMetrics(db, propertyId, query);
+      return await runQueryMetrics(db, propertyId, query);
     } finally {
       db.Dispose();
     }

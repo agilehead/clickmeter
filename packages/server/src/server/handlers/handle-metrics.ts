@@ -1,5 +1,4 @@
 import { List } from "@tsonic/dotnet/System.Collections.Generic.js";
-import { Task } from "@tsonic/dotnet/System.Threading.Tasks.js";
 
 import { HttpContext } from "@tsonic/aspnetcore/Microsoft.AspNetCore.Http.js";
 
@@ -59,27 +58,48 @@ const parseGroupByList = (raw: string | undefined): GroupByKey[] | undefined => 
   return deduped.ToArray();
 };
 
-export const handleMetrics = (app: AppContext, ctx: HttpContext): Task => {
+export const handleMetrics = async (app: AppContext, ctx: HttpContext): Promise<void> => {
   const path = getPath(ctx);
   const propertyId = parsePropertyIdFromPath(path);
-  if (!propertyId) return writeJson(ctx.Response, 404, serializeError("not_found", "Invalid property route"));
+  if (!propertyId) {
+    await writeJson(ctx.Response, 404, serializeError("not_found", "Invalid property route"));
+    return;
+  }
 
-  const auth = requireReadKey(app.db, ctx);
-  if ("error" in auth) return auth.error;
-  if (auth.property_id !== propertyId) return writeJson(ctx.Response, 403, serializeError("forbidden", "Key does not match property"));
+  const auth = await requireReadKey(app.db, ctx);
+  if ("error" in auth) {
+    await auth.error;
+    return;
+  }
+  if (auth.property_id !== propertyId) {
+    await writeJson(ctx.Response, 403, serializeError("forbidden", "Key does not match property"));
+    return;
+  }
 
   const from = getRequiredQuery(ctx, "from");
   const to = getRequiredQuery(ctx, "to");
-  if (!from || !to) return writeJson(ctx.Response, 400, serializeError("invalid_request", "Missing from/to"));
+  if (!from || !to) {
+    await writeJson(ctx.Response, 400, serializeError("invalid_request", "Missing from/to"));
+    return;
+  }
 
   const range = parseDateRangeUtc(from, to);
-  if (!range) return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid from/to format (YYYY-MM-DD)"));
+  if (!range) {
+    await writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid from/to format (YYYY-MM-DD)"));
+    return;
+  }
 
   const metrics = parseMetricsList(getQuery(ctx, "metrics"));
-  if (!metrics) return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid metrics list"));
+  if (!metrics) {
+    await writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid metrics list"));
+    return;
+  }
 
   const groupBy = parseGroupByList(getQuery(ctx, "group_by"));
-  if (!groupBy) return writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid group_by list"));
+  if (!groupBy) {
+    await writeJson(ctx.Response, 400, serializeError("invalid_request", "Invalid group_by list"));
+    return;
+  }
 
   const limitRaw = getQuery(ctx, "limit");
   const limit = limitRaw ? parseLimit(limitRaw, 100) : undefined;
@@ -89,7 +109,7 @@ export const handleMetrics = (app: AppContext, ctx: HttpContext): Task => {
   const scopeType = getQuery(ctx, "scope_type") ?? undefined;
   const scopeId = getQuery(ctx, "scope_id") ?? undefined;
 
-  const result = app.db.queryMetrics(propertyId, {
+  const result = await app.db.queryMetrics(propertyId, {
     fromMs: range.fromMs,
     toMsExclusive: range.toMsExclusive,
     metrics,
@@ -158,5 +178,5 @@ export const handleMetrics = (app: AppContext, ctx: HttpContext): Task => {
     w.WriteEndObject();
   });
 
-  return writeJson(ctx.Response, 200, body);
+  await writeJson(ctx.Response, 200, body);
 };

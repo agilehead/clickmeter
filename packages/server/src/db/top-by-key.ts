@@ -1,5 +1,5 @@
 import type { int } from "@tsonic/core/types.js";
-import type { out } from "@tsonic/core/types.js";
+import { defaultof, out } from "@tsonic/core/lang.js";
 import { Dictionary, HashSet, List } from "@tsonic/dotnet/System.Collections.Generic.js";
 
 import type { Event as EventEntity } from "./entities.ts";
@@ -22,8 +22,8 @@ export const topByKey = (
     const e = events[i];
     const key = getKey(e);
 
-    let counter = null as unknown as CounterBucket;
-    if (!map.TryGetValue(key, counter as out<CounterBucket>)) {
+    let counter = defaultof<CounterBucket>();
+    if (!map.TryGetValue(key, out(counter))) {
       counter = new CounterBucket();
       map.Add(key, counter);
     }
@@ -61,4 +61,3 @@ export const topByKey = (
   for (let i = 0; i < take; i++) outRows.Add(arr[i]);
   return outRows.ToArray();
 };
-

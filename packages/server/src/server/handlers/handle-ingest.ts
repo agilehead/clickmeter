@@ -103,18 +103,22 @@ const serializeIngestAck = (accepted: int, rejected: int, deduped: int, errors: 
   });
 };
 
-export const handleIngest = (app: AppContext, ctx: HttpContext): PromiseLike<void> => {
+export const handleIngest = async (app: AppContext, ctx: HttpContext): Promise<void> => {
   const { db } = app;
 
   const token = getBearerToken(ctx);
-  if (!token) return writeJson(ctx.Response, 401, serializeError("unauthorized", "Missing bearer token"));
-
-  const key = db.lookupKey(token);
-  if (!key || key.kind !== "write") {
-    return writeJson(ctx.Response, 401, serializeError("unauthorized", "Invalid write key"));
+  if (!token) {
+    await writeJson(ctx.Response, 401, serializeError("unauthorized", "Missing bearer token"));
+    return;
   }
 
-  return handleIngestBody(app, ctx, key);
+  const key = await db.lookupKey(token);
+  if (!key || key.kind !== "write") {
+    await writeJson(ctx.Response, 401, serializeError("unauthorized", "Invalid write key"));
+    return;
+  }
+
+  await handleIngestBody(app, ctx, key);
 };
 
 const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecord): Promise<void> => {
@@ -164,7 +168,7 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
     return;
   }
 
-  const property = db.getProperty(propertyIdTrimmed);
+  const property = await db.getProperty(propertyIdTrimmed);
   if (!property) {
     await writeJson(
       ctx.Response,
@@ -330,7 +334,7 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
     ev.Dispose();
   }
 
-  const result = db.insertEvents(propertyIdTrimmed, inserts.ToArray());
+  const result = await db.insertEvents(propertyIdTrimmed, inserts.ToArray());
 
   const ackBody = serializeIngestAck(
     result.accepted,
