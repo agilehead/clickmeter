@@ -1,22 +1,17 @@
 import type { int, long } from "@tsonic/core/types.js";
-import type { out } from "@tsonic/core/types.js";
-import { asinterface } from "@tsonic/core/lang.js";
+import { defaultof, out } from "@tsonic/core/lang.js";
 import { Dictionary, HashSet, List } from "@tsonic/dotnet/System.Collections.Generic.js";
-import type { IQueryable } from "@tsonic/dotnet/System.Linq.js";
-import type { ExtensionMethods as Linq } from "@tsonic/dotnet/System.Linq.js";
 
 import type { MetricsRow as ApiMetricsRow, MetricsTotals } from "../model/api.ts";
 import type { ClickmeterDbContext } from "./context.ts";
 import type { Event as EventEntity } from "./entities.ts";
 import type { GroupByKey, MetricName, MetricsQuery, MetricsResult } from "./clickmeter-db.ts";
 
-type LinqQ<T> = Linq<IQueryable<T>>;
-
-export const queryMetrics = (
+export const queryMetrics = async (
   db: ClickmeterDbContext,
   propertyId: string,
   query: MetricsQuery
-): MetricsResult => {
+): Promise<MetricsResult> => {
   const db0 = db;
   const propertyId0 = propertyId;
 
@@ -40,15 +35,15 @@ export const queryMetrics = (
   for (let i = 0; i < query.metrics.Length; i++) {
     const m = query.metrics[i];
     if (m === "pageviews") {
-      totals[m] = asinterface<LinqQ<EventEntity>>(db0.Events)
+      totals[m] = await db0.Events
         .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
         .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
         .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
         .Where((e) => scopeType === undefined || e.ScopeType === scopeType)
         .Where((e) => scopeId === undefined || e.ScopeId === scopeId)
-        .Count();
+        .CountAsync();
     } else if (m === "unique_visitors") {
-      totals[m] = asinterface<LinqQ<EventEntity>>(db0.Events)
+      totals[m] = await db0.Events
         .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
         .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
         .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
@@ -57,9 +52,9 @@ export const queryMetrics = (
         .Where((e) => e.VisitorId !== undefined && e.VisitorId !== "")
         .Select((e) => e.VisitorId!)
         .Distinct()
-        .Count();
+        .CountAsync();
     } else if (m === "sessions") {
-      totals[m] = asinterface<LinqQ<EventEntity>>(db0.Events)
+      totals[m] = await db0.Events
         .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
         .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
         .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
@@ -68,18 +63,18 @@ export const queryMetrics = (
         .Where((e) => e.SessionId !== undefined && e.SessionId !== "")
         .Select((e) => e.SessionId!)
         .Distinct()
-        .Count();
+        .CountAsync();
     }
   }
 
   // Grouped rows: materialize and group in memory to avoid expression-tree projections.
-  const events = asinterface<LinqQ<EventEntity>>(db0.Events)
+  const events = await db0.Events
     .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
     .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
     .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
     .Where((e) => scopeType === undefined || e.ScopeType === scopeType)
     .Where((e) => scopeId === undefined || e.ScopeId === scopeId)
-    .ToArray();
+    .ToArrayAsync();
 
   const rows = groupMetrics(events, query.metrics, query.groupBy, query.limit);
   return { rows, totals };
@@ -129,8 +124,8 @@ const groupMetrics = (
       key += `${g}=${value}\u001f`;
     }
 
-    let bucket = null as unknown as MetricBucket;
-    if (!map.TryGetValue(key, bucket as out<MetricBucket>)) {
+    let bucket = defaultof<MetricBucket>();
+    if (!map.TryGetValue(key, out(bucket))) {
       bucket = new MetricBucket(group);
       map.Add(key, bucket);
     }
@@ -147,15 +142,15 @@ const groupMetrics = (
   while (iter.MoveNext()) {
     const pair = iter.Current;
     const group = pair.Value.group;
-    const out: MetricsTotals = {};
+    const metricsOut: MetricsTotals = {};
     for (let j = 0; j < metrics.Length; j++) {
       const m = metrics[j];
-      if (m === "pageviews") out[m] = pair.Value.pageviews;
-      else if (m === "unique_visitors") out[m] = pair.Value.visitors.Count;
-      else if (m === "sessions") out[m] = pair.Value.sessions.Count;
+      if (m === "pageviews") metricsOut[m] = pair.Value.pageviews;
+      else if (m === "unique_visitors") metricsOut[m] = pair.Value.visitors.Count;
+      else if (m === "sessions") metricsOut[m] = pair.Value.sessions.Count;
     }
 
-    rows.Add({ group, metrics: out });
+    rows.Add({ group, metrics: metricsOut });
   }
 
   const arr = rows.ToArray();

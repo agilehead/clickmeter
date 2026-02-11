@@ -17,11 +17,11 @@ export interface ReadKeyAuthError {
 
 export type ReadKeyAuthResult = ReadKeyAuthOk | ReadKeyAuthError;
 
-export const requireReadKey = (db: ClickmeterDb, ctx: HttpContext): ReadKeyAuthResult => {
+export const requireReadKey = async (db: ClickmeterDb, ctx: HttpContext): Promise<ReadKeyAuthResult> => {
   const token = getBearerToken(ctx);
   if (!token) return { error: writeJson(ctx.Response, 401, serializeError("unauthorized", "Missing bearer token")) };
 
-  const key = db.lookupKey(token);
+  const key = await db.lookupKey(token);
   if (!key || key.kind !== "read") {
     return { error: writeJson(ctx.Response, 401, serializeError("unauthorized", "Invalid read key")) };
   }
