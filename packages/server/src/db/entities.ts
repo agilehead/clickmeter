@@ -1,5 +1,5 @@
 import { long } from "@tsonic/core/types.js";
-import { attributes as A } from "@tsonic/core/attributes.js";
+import { attributes as A } from "@tsonic/core/lang.js";
 
 import { KeyAttribute } from "@tsonic/dotnet/System.ComponentModel.DataAnnotations.js";
 
