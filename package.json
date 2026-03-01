@@ -13,17 +13,17 @@
     "selftest": "bash ./scripts/selftest.sh"
   },
   "devDependencies": {
-    "@tsonic/aspnetcore": "10.0.35",
-    "@tsonic/core": "10.0.35",
-    "@tsonic/dotnet": "10.0.35",
-    "@tsonic/efcore": "10.0.35",
-    "@tsonic/efcore-sqlite": "10.0.35",
-    "@tsonic/globals": "10.0.35",
-    "@tsonic/microsoft-extensions": "10.0.35",
+    "@tsonic/aspnetcore": "^10.0.37",
+    "@tsonic/core": "^10.0.37",
+    "@tsonic/dotnet": "^10.0.37",
+    "@tsonic/efcore": "^10.0.37",
+    "@tsonic/efcore-sqlite": "^10.0.37",
+    "@tsonic/globals": "^10.0.37",
+    "@tsonic/microsoft-extensions": "^10.0.37",
     "dotenv": "^16.4.7",
     "knex": "^3.1.0",
     "sqlite3": "^5.1.7",
-    "tsonic": "0.0.61",
+    "tsonic": "^0.0.63",
     "typescript": "5.9.2"
   }
 }

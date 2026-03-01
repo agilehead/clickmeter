@@ -3,6 +3,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+if [[ -z "${TSONIC_BIN:-}" ]]; then
+  echo "FAIL: TSONIC_BIN is not set. Set it to the tsonic CLI path." >&2
+  exit 1
+fi
+
 echo "=== clickmeter selftest ==="
 echo "workspace: ${ROOT}"
 
