@@ -108,7 +108,7 @@ const sha256Hex = (value: string): string => {
 
 const randomKey = (): string => Guid.NewGuid().ToString("N");
 
-const normalizeOrigin = (origin: string): string => origin.Trim().ToLowerInvariant();
+const normalizeOrigin = (origin: string): string => origin.trim().toLowerCase();
 
 export class ClickmeterDb {
   private readonly options: DbContextOptions;
@@ -170,7 +170,7 @@ export class ClickmeterDb {
       if (existing) return undefined;
 
       const normalized = new List<string>();
-      for (let i = 0; i < allowedOrigins.Length; i++) {
+      for (let i = 0; i < allowedOrigins.length; i++) {
         const o = normalizeOrigin(allowedOrigins[i]);
         if (o !== "") normalized.Add(o);
       }
@@ -212,7 +212,7 @@ export class ClickmeterDb {
     propertyId: string,
     events: readonly InsertEvent[]
   ): Promise<IngestInsertResult> {
-    if (events.Length === 0) return { accepted: 0, deduped: 0 };
+    if (events.length === 0) return { accepted: 0, deduped: 0 };
 
     let accepted: int = 0;
     let deduped: int = 0;
@@ -222,7 +222,7 @@ export class ClickmeterDb {
       const db0 = db;
       const propertyId0 = propertyId;
 
-      for (let i = 0; i < events.Length; i++) {
+      for (let i = 0; i < events.length; i++) {
         const e = events[i];
 
         const eventId0 = e.event_id;
@@ -272,7 +272,7 @@ export class ClickmeterDb {
           for (const k in dims) {
             const raw = dims[k];
             if (typeof raw !== "string") continue;
-            const v = raw.Trim();
+            const v = raw.trim();
             if (v === "") continue;
 
             const dim = new EventDim();

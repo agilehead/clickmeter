@@ -17,12 +17,12 @@ import type { AppContext } from "../create-app-handlers.ts";
 
 const splitCsv = (raw: string | undefined): string[] => {
   if (!raw) return [];
-  const trimmed = raw.Trim();
+  const trimmed = raw.trim();
   if (trimmed === "") return [];
-  const parts = trimmed.Split(",");
+  const parts = trimmed.split(",");
   const out = new List<string>();
-  for (let i = 0; i < parts.Length; i++) {
-    const part = parts[i].Trim();
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i].trim();
     if (part !== "") out.Add(part);
   }
   return out.ToArray();
@@ -30,9 +30,9 @@ const splitCsv = (raw: string | undefined): string[] => {
 
 const parseMetricsList = (raw: string | undefined): MetricName[] | undefined => {
   const items = splitCsv(raw);
-  if (items.Length === 0) return ["pageviews", "unique_visitors", "sessions"];
+  if (items.length === 0) return ["pageviews", "unique_visitors", "sessions"];
   const out = new List<MetricName>();
-  for (let i = 0; i < items.Length; i++) {
+  for (let i = 0; i < items.length; i++) {
     const m = items[i];
     if (m === "pageviews" || m === "unique_visitors" || m === "sessions") out.Add(m);
     else return undefined;
@@ -42,11 +42,11 @@ const parseMetricsList = (raw: string | undefined): MetricName[] | undefined => 
 
 const parseGroupByList = (raw: string | undefined): GroupByKey[] | undefined => {
   const items = splitCsv(raw);
-  if (items.Length === 0) return [];
+  if (items.length === 0) return [];
 
   const deduped = new List<GroupByKey>();
 
-  for (let i = 0; i < items.Length; i++) {
+  for (let i = 0; i < items.length; i++) {
     const g = items[i];
 
     if (g !== "path" && g !== "campaign_id" && g !== "scope_type" && g !== "scope_id") return undefined;
@@ -114,7 +114,7 @@ export const handleMetrics = async (app: AppContext, ctx: HttpContext): Promise<
     toMsExclusive: range.toMsExclusive,
     metrics,
     groupBy,
-    paths: paths.Length > 0 ? paths : undefined,
+    paths: paths.length > 0 ? paths : undefined,
     campaignId,
     scopeType,
     scopeId,
@@ -129,16 +129,16 @@ export const handleMetrics = async (app: AppContext, ctx: HttpContext): Promise<
     w.WriteString("tz", "UTC");
 
     w.WriteStartArray("metrics");
-    for (let i = 0; i < metrics.Length; i++) w.WriteStringValue(metrics[i]);
+    for (let i = 0; i < metrics.length; i++) w.WriteStringValue(metrics[i]);
     w.WriteEndArray();
 
     w.WriteStartArray("group_by");
-    for (let i = 0; i < groupBy.Length; i++) w.WriteStringValue(groupBy[i]);
+    for (let i = 0; i < groupBy.length; i++) w.WriteStringValue(groupBy[i]);
     w.WriteEndArray();
 
     w.WriteStartObject("filters");
     w.WriteStartArray("path");
-    for (let i = 0; i < paths.Length; i++) w.WriteStringValue(paths[i]);
+    for (let i = 0; i < paths.length; i++) w.WriteStringValue(paths[i]);
     w.WriteEndArray();
 
     w.WriteStartArray("campaign_id");
@@ -155,7 +155,7 @@ export const handleMetrics = async (app: AppContext, ctx: HttpContext): Promise<
     w.WriteEndObject();
 
     w.WriteStartArray("rows");
-    for (let i = 0; i < result.rows.Length; i++) {
+    for (let i = 0; i < result.rows.length; i++) {
       const row = result.rows[i];
       w.WriteStartObject();
       if (row.bucket !== undefined) w.WriteString("bucket", row.bucket);

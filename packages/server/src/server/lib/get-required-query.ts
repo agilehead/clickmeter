@@ -5,7 +5,6 @@ import { getQuery } from "../../http/get-query.ts";
 export const getRequiredQuery = (ctx: HttpContext, key: string): string | undefined => {
   const value = getQuery(ctx, key);
   if (value === undefined) return undefined;
-  const trimmed = value.Trim();
+  const trimmed = value.trim();
   return trimmed === "" ? undefined : trimmed;
 };
-
