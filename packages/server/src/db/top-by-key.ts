@@ -18,7 +18,7 @@ export const topByKey = (
 ): TopRow[] => {
   const map = new Dictionary<string, CounterBucket>();
 
-  for (let i = 0; i < events.Length; i++) {
+  for (let i = 0; i < events.length; i++) {
     const e = events[i];
     const key = getKey(e);
 
@@ -46,8 +46,8 @@ export const topByKey = (
 
   const arr = rows.ToArray();
   // Simple in-place sort (descending by pageviews)
-  for (let i = 0; i < arr.Length; i++) {
-    for (let j = i + 1; j < arr.Length; j++) {
+  for (let i = 0; i < arr.length; i++) {
+    for (let j = i + 1; j < arr.length; j++) {
       if (arr[j].pageviews > arr[i].pageviews) {
         const tmp = arr[i];
         arr[i] = arr[j];
@@ -56,7 +56,7 @@ export const topByKey = (
     }
   }
 
-  const take = limit < arr.Length ? limit : arr.Length;
+  const take = limit < arr.length ? limit : arr.length;
   const outRows = new List<TopRow>();
   for (let i = 0; i < take; i++) outRows.Add(arr[i]);
   return outRows.ToArray();

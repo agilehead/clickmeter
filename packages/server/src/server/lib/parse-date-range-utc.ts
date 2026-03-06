@@ -14,8 +14,8 @@ interface Ymd {
 
 export const parseDateRangeUtc = (from: string, to: string): UtcDateRange | undefined => {
   const parse = (s: string): Ymd | undefined => {
-    const parts = s.Split("-");
-    if (parts.Length !== 3) return undefined;
+    const parts = s.split("-");
+    if (parts.length !== 3) return undefined;
     const y = Int32.Parse(parts[0]);
     const m = Int32.Parse(parts[1]);
     const d = Int32.Parse(parts[2]);

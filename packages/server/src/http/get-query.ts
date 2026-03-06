@@ -7,23 +7,22 @@ export const getQuery = (ctx: HttpContext, key: string): string | undefined => {
   if (raw === undefined || raw === "") return undefined;
 
   let qs = raw;
-  if (qs.StartsWith("?")) qs = qs.Substring(1);
+  if (qs.startsWith("?")) qs = qs.substring(1);
   if (qs === "") return undefined;
 
-  const pairs = qs.Split("&");
-  for (let i = 0; i < pairs.Length; i++) {
+  const pairs = qs.split("&");
+  for (let i = 0; i < pairs.length; i++) {
     const part = pairs[i];
     if (part === "") continue;
 
-    const kv = part.Split("=");
-    const k = Uri.UnescapeDataString(kv[0].Replace("+", " "));
+    const kv = part.split("=");
+    const k = Uri.UnescapeDataString(kv[0].replaceAll("+", " "));
     if (k !== key) continue;
 
-    const v = kv.Length > 1 ? Uri.UnescapeDataString(kv[1].Replace("+", " ")) : "";
-    const trimmed = v.Trim();
+    const v = kv.length > 1 ? Uri.UnescapeDataString(kv[1].replaceAll("+", " ")) : "";
+    const trimmed = v.trim();
     return trimmed === "" ? undefined : trimmed;
   }
 
   return undefined;
 };
-

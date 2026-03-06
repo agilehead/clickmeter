@@ -2,11 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": [
-      "@tsonic/globals"
+      "@tsonic/js"
     ]
   },
   "include": [
     "src/**/*.ts"
   ]
 }
-
