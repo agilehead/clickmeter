@@ -25,14 +25,14 @@ export const queryMetrics = async (
   // - Always allocate a (possibly-empty) list so it can be safely captured into the expression tree.
   // - Gate the filter via hasPaths to avoid empty-IN semantics.
   const paths = new List<string>();
-  const hasPaths = query.paths !== undefined && query.paths.length > 0;
+  const hasPaths = query.paths !== undefined && query.paths.Length > 0;
   if (query.paths) {
-    for (let i = 0; i < query.paths.length; i++) paths.Add(query.paths[i]);
+    for (let i = 0; i < query.paths.Length; i++) paths.Add(query.paths[i]);
   }
 
   // Totals (computed in DB)
   const totals: Record<string, int> = {};
-  for (let i = 0; i < query.metrics.length; i++) {
+  for (let i = 0; i < query.metrics.Length; i++) {
     const m = query.metrics[i];
     if (m === "pageviews") {
       totals[m] = await db0.Events
@@ -103,16 +103,16 @@ const groupMetrics = (
   groupBy: readonly GroupByKey[],
   limit?: int
 ): ApiMetricsRow[] => {
-  if (groupBy.length === 0) return [];
+  if (groupBy.Length === 0) return [];
 
   const map = new Dictionary<string, MetricBucket>();
 
-  for (let i = 0; i < events.length; i++) {
+  for (let i = 0; i < events.Length; i++) {
     const e = events[i];
 
     const group: Record<string, string> = {};
     let key = "";
-    for (let j = 0; j < groupBy.length; j++) {
+    for (let j = 0; j < groupBy.Length; j++) {
       const g = groupBy[j];
       let value = "";
       if (g === "path") value = e.Path ?? "";
@@ -143,7 +143,7 @@ const groupMetrics = (
     const pair = iter.Current;
     const group = pair.Value.group;
     const metricsOut: MetricsTotals = {};
-    for (let j = 0; j < metrics.length; j++) {
+    for (let j = 0; j < metrics.Length; j++) {
       const m = metrics[j];
       if (m === "pageviews") metricsOut[m] = pair.Value.pageviews;
       else if (m === "unique_visitors") metricsOut[m] = pair.Value.visitors.Count;
@@ -155,8 +155,8 @@ const groupMetrics = (
 
   const arr = rows.ToArray();
   // Desc by pageviews if present
-  for (let i = 0; i < arr.length; i++) {
-    for (let j = i + 1; j < arr.length; j++) {
+  for (let i = 0; i < arr.Length; i++) {
+    for (let j = i + 1; j < arr.Length; j++) {
       const a = arr[i].metrics["pageviews"] ?? 0;
       const b = arr[j].metrics["pageviews"] ?? 0;
       if (b > a) {
@@ -167,7 +167,7 @@ const groupMetrics = (
     }
   }
 
-  if (limit !== undefined && limit > 0 && limit < arr.length) {
+  if (limit !== undefined && limit > 0 && limit < arr.Length) {
     const out = new List<ApiMetricsRow>();
     for (let i = 0; i < limit; i++) out.Add(arr[i]);
     return out.ToArray();

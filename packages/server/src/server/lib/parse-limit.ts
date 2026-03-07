@@ -3,7 +3,7 @@ import { Int32 } from "@tsonic/dotnet/System.js";
 
 export const parseLimit = (raw: string | undefined, fallback: int): int => {
   if (!raw) return fallback;
-  const trimmed = raw.trim();
+  const trimmed = raw.Trim();
   if (trimmed === "") return fallback;
   try {
     const n = Int32.Parse(trimmed);

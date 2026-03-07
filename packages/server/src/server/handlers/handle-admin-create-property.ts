@@ -25,7 +25,7 @@ const parseAdminCreatePropertyPayload = (json: string): AdminCreatePropertyPaylo
 
   try {
     const propertyId = root.GetProperty("property_id").GetString();
-    if (propertyId === undefined || propertyId.trim() === "") return undefined;
+    if (propertyId === undefined || propertyId.Trim() === "") return undefined;
 
     let allowedOrigins = EMPTY_STRING_ARRAY;
     try {
@@ -47,7 +47,7 @@ const parseAdminCreatePropertyPayload = (json: string): AdminCreatePropertyPaylo
       // optional
     }
 
-    return { property_id: propertyId.trim(), allowed_origins: allowedOrigins };
+    return { property_id: propertyId.Trim(), allowed_origins: allowedOrigins };
   } catch (_err) {
     return undefined;
   }
@@ -66,7 +66,7 @@ const serializeAdminCreatePropertyResponse = (res: AdminCreatePropertyResponse):
 export const handleAdminCreateProperty = async (app: AppContext, ctx: HttpContext): Promise<void> => {
   const { db, adminToken } = app;
 
-  if (!adminToken || adminToken.trim() === "") {
+  if (!adminToken || adminToken.Trim() === "") {
     await writeJson(ctx.Response, 500, serializeError("misconfigured", "CLICKMETER_ADMIN_TOKEN is not set"));
     return;
   }
