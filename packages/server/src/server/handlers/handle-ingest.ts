@@ -20,7 +20,7 @@ import { setCorsHeaders } from "../lib/set-cors-headers.ts";
 import type { AppContext } from "../create-app-handlers.ts";
 
 const parseIsoOrNowUnixMs = (value: string | undefined): long => {
-  if (value === undefined || value.trim() === "") return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+  if (value === undefined || value.Trim() === "") return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
   try {
     return DateTimeOffset.Parse(value).ToUnixTimeMilliseconds();
   } catch (_err) {
@@ -90,7 +90,7 @@ const serializeIngestAck = (accepted: int, rejected: int, deduped: int, errors: 
     w.WriteNumber("rejected", rejected);
     w.WriteNumber("deduped", deduped);
     w.WriteStartArray("errors");
-    for (let i = 0; i < errors.length; i++) {
+    for (let i = 0; i < errors.Length; i++) {
       const e = errors[i];
       w.WriteStartObject();
       w.WriteNumber("index", e.index);
@@ -148,7 +148,7 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
   }
 
   const propertyId = getOptionalString(root, "property_id");
-  if (propertyId === undefined || propertyId.trim() === "") {
+  if (propertyId === undefined || propertyId.Trim() === "") {
     await writeJson(
       ctx.Response,
       400,
@@ -157,7 +157,7 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
     return;
   }
 
-  const propertyIdTrimmed = propertyId.trim();
+  const propertyIdTrimmed = propertyId.Trim();
 
   if (propertyIdTrimmed !== key.property_id) {
     await writeJson(
@@ -180,11 +180,11 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
 
   const origin = getOrigin(ctx);
   if (origin) {
-    if (property.allowed_origins.length > 0) {
+    if (property.allowed_origins.Length > 0) {
       let ok = false;
       for (
         let originIndex = 0;
-        originIndex < property.allowed_origins.length;
+        originIndex < property.allowed_origins.Length;
         originIndex++
       ) {
         if (property.allowed_origins[originIndex] === origin) {
@@ -245,7 +245,7 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
   const receivedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
   const ua = ctx.Request.Headers.UserAgent.ToString();
-  const userAgent = ua.trim() === "" ? undefined : ua;
+  const userAgent = ua.Trim() === "" ? undefined : ua;
   const ip = ctx.Connection.RemoteIpAddress?.ToString();
 
   const ev = eventsEl.EnumerateArray();
@@ -268,9 +268,9 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
       const type = getOptionalString(e, "type");
       if (
         eventId === undefined ||
-        eventId.trim() === "" ||
+        eventId.Trim() === "" ||
         type === undefined ||
-        type.trim() === ""
+        type.Trim() === ""
       ) {
         errors.Add({
           index: eventIndex as int,
@@ -304,8 +304,8 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
       const identity = getOptionalObject(e, "identity");
 
       inserts.Add({
-        event_id: eventId.trim(),
-        type: type.trim(),
+        event_id: eventId.Trim(),
+        type: type.Trim(),
         ts,
         received_at: receivedAt,
         url: getOptionalString(page, "url"),

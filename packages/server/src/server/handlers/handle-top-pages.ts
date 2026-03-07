@@ -54,7 +54,7 @@ export const handleTopPages = async (app: AppContext, ctx: HttpContext): Promise
     w.WriteString("to", to);
     w.WriteString("tz", "UTC");
     w.WriteStartArray("rows");
-    for (let i = 0; i < rawRows.length; i++) {
+    for (let i = 0; i < rawRows.Length; i++) {
       const r = rawRows[i];
       w.WriteStartObject();
       w.WriteString("path", r.key);

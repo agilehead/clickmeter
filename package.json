@@ -18,12 +18,12 @@
     "@tsonic/dotnet": "^10.0.37",
     "@tsonic/efcore": "^10.0.37",
     "@tsonic/efcore-sqlite": "^10.0.37",
-    "@tsonic/js": "^10.0.37",
+    "@tsonic/globals": "^10.0.38",
     "@tsonic/microsoft-extensions": "^10.0.37",
     "dotenv": "^16.4.7",
     "knex": "^3.1.0",
     "sqlite3": "^5.1.7",
-    "tsonic": "^0.0.63",
+    "tsonic": "^0.0.67",
     "typescript": "5.9.2"
   }
 }

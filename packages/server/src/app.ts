@@ -1,6 +1,4 @@
 import { Console } from "@tsonic/dotnet/System.js";
-import type { String as ClrString } from "@tsonic/dotnet/System.js";
-import { List } from "@tsonic/dotnet/System.Collections.Generic.js";
 import { asinterface } from "@tsonic/core/lang.js";
 
 import { WebApplication } from "@tsonic/aspnetcore/Microsoft.AspNetCore.Builder.js";
@@ -31,8 +29,7 @@ export function main(): void {
   app.MapGet("/health", handlers.handleHealth);
 
   // CORS preflight for browser ingestion.
-  const methods = new List<ClrString>();
-  methods.Add("OPTIONS" as ClrString);
+  const methods = ["OPTIONS"];
   app.MapMethods("/v1/events", methods, handlers.handleIngestCorsPreflight);
   app.MapPost("/v1/events", handlers.handleIngest);
   app.MapGet("/v1/properties/{property_id}/overview", handlers.handleOverview);
