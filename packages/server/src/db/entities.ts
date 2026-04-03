@@ -64,15 +64,15 @@ export class EventDim {
 }
 
 // EF Core mappings (NativeAOT-friendly)
-A.on(PropertyRow).prop((x) => x.PropertyId).add(KeyAttribute);
+A<PropertyRow>().prop((x) => x.PropertyId).add(KeyAttribute);
 
-A.on(ApiKey).prop((x) => x.KeyHash).add(KeyAttribute);
+A<ApiKey>().prop((x) => x.KeyHash).add(KeyAttribute);
 
-A.on(Event).type.add(PrimaryKeyAttribute, "PropertyId", ["EventId"]);
-A.on(Event).type.add(IndexAttribute, ["PropertyId", "Ts"]);
-A.on(Event).type.add(IndexAttribute, ["PropertyId", "Path", "Ts"]);
-A.on(Event).type.add(IndexAttribute, ["PropertyId", "CampaignId", "Ts"]);
-A.on(Event).type.add(IndexAttribute, ["PropertyId", "ScopeType", "ScopeId", "Ts"]);
+A<Event>().add(PrimaryKeyAttribute, "PropertyId", ["EventId"]);
+A<Event>().add(IndexAttribute, ["PropertyId", "Ts"]);
+A<Event>().add(IndexAttribute, ["PropertyId", "Path", "Ts"]);
+A<Event>().add(IndexAttribute, ["PropertyId", "CampaignId", "Ts"]);
+A<Event>().add(IndexAttribute, ["PropertyId", "ScopeType", "ScopeId", "Ts"]);
 
-A.on(EventDim).type.add(PrimaryKeyAttribute, "PropertyId", ["EventId", "Key"]);
-A.on(EventDim).type.add(IndexAttribute, ["Key", "Value"]);
+A<EventDim>().add(PrimaryKeyAttribute, "PropertyId", ["EventId", "Key"]);
+A<EventDim>().add(IndexAttribute, ["Key", "Value"]);
