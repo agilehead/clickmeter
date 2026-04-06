@@ -14,7 +14,7 @@ export const parseStringRecord = (json: string): Record<string, string> | undefi
       const v = p.Value;
       if (v.ValueKind === JsonValueKind.String) {
         const s = v.GetString();
-        if (s !== undefined) result[p.Name] = s;
+        if (s !== null) result[p.Name] = s;
       }
     }
   } finally {

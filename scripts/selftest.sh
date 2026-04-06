@@ -8,6 +8,10 @@ if [[ -z "${TSONIC_BIN:-}" ]]; then
   exit 1
 fi
 
+source "${ROOT}/scripts/local-first-party.sh"
+
+overlay_local_first_party_packages "${ROOT}"
+
 echo "=== clickmeter selftest ==="
 echo "workspace: ${ROOT}"
 

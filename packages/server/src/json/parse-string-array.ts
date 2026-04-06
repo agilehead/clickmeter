@@ -12,7 +12,7 @@ export const parseStringArray = (json: string): string[] | undefined => {
   try {
     while (e.MoveNext()) {
       const s = e.Current.GetString();
-      if (s !== undefined) values.Add(s);
+      if (s !== null) values.Add(s);
     }
   } finally {
     e.Dispose();

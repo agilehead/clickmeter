@@ -1,5 +1,6 @@
 import { Console } from "@tsonic/dotnet/System.js";
 import { asinterface } from "@tsonic/core/lang.js";
+import { List } from "@tsonic/dotnet/System.Collections.Generic.js";
 
 import { WebApplication } from "@tsonic/aspnetcore/Microsoft.AspNetCore.Builder.js";
 import type { ExtensionMethods } from "@tsonic/aspnetcore/Microsoft.AspNetCore.Builder.js";
@@ -29,7 +30,8 @@ export function main(): void {
   app.MapGet("/health", handlers.handleHealth);
 
   // CORS preflight for browser ingestion.
-  const methods = ["OPTIONS"];
+  const methods = new List<string>();
+  methods.Add("OPTIONS");
   app.MapMethods("/v1/events", methods, handlers.handleIngestCorsPreflight);
   app.MapPost("/v1/events", handlers.handleIngest);
   app.MapGet("/v1/properties/{property_id}/overview", handlers.handleOverview);

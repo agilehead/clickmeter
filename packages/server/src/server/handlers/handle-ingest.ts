@@ -57,7 +57,7 @@ const getOptionalString = (obj: JsonElement, name: string): string | undefined =
     const el = obj.GetProperty(name);
     if (el.ValueKind !== JsonValueKind.String) return undefined;
     const s = el.GetString();
-    return s === undefined ? undefined : s;
+    return s === null ? undefined : s;
   } catch (_err) {
     return undefined;
   }
@@ -74,7 +74,7 @@ const readStringRecord = (obj: JsonElement): Record<string, string> | undefined 
       const v = p.Value;
       if (v.ValueKind === JsonValueKind.String) {
         const s = v.GetString();
-        if (s !== undefined) out[p.Name] = s;
+        if (s !== null) out[p.Name] = s;
       }
     }
   } finally {
