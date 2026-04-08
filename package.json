@@ -10,7 +10,8 @@
     "typecheck": "npm -ws --if-present run typecheck",
     "dev": "npm -w @clickmeter/server run dev",
     "migrate": "bash ./scripts/migrate.sh",
-    "selftest": "bash ./scripts/selftest.sh"
+    "selftest": "bash ./scripts/selftest.sh",
+    "verify-all": "bash ./scripts/verify-all.sh"
   },
   "devDependencies": {
     "@tsonic/aspnetcore": "^10.0.37",

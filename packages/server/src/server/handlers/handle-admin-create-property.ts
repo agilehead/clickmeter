@@ -25,7 +25,7 @@ const parseAdminCreatePropertyPayload = (json: string): AdminCreatePropertyPaylo
 
   try {
     const propertyId = root.GetProperty("property_id").GetString();
-    if (propertyId === undefined || propertyId.Trim() === "") return undefined;
+    if (propertyId === null || propertyId.Trim() === "") return undefined;
 
     let allowedOrigins = EMPTY_STRING_ARRAY;
     try {
@@ -36,7 +36,7 @@ const parseAdminCreatePropertyPayload = (json: string): AdminCreatePropertyPaylo
         try {
           while (e.MoveNext()) {
             const s = e.Current.GetString();
-            if (s !== undefined) items.Add(s);
+            if (s !== null) items.Add(s);
           }
         } finally {
           e.Dispose();
