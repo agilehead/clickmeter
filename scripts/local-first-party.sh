@@ -21,6 +21,26 @@ ensure_local_package_exists() {
   fi
 }
 
+ensure_npm_install() {
+  local install_root="$1"
+
+  if [[ -d "${install_root}/node_modules" ]]; then
+    return 0
+  fi
+
+  if [[ ! -f "${install_root}/package.json" ]]; then
+    echo "FAIL: package.json missing for install root: ${install_root}" >&2
+    exit 1
+  fi
+
+  echo "=== npm install: ${install_root} ==="
+  if [[ -f "${install_root}/package-lock.json" ]]; then
+    (cd "${install_root}" && npm ci)
+  else
+    (cd "${install_root}" && npm install)
+  fi
+}
+
 link_local_package() {
   local install_root="$1"
   local package_name="$2"
@@ -28,12 +48,8 @@ link_local_package() {
   local scope_dir="${install_root}/node_modules/@tsonic"
   local destination="${scope_dir}/${package_name}"
 
-  if [[ ! -d "${scope_dir}" ]]; then
-    echo "FAIL: expected scope directory missing: ${scope_dir}" >&2
-    exit 1
-  fi
-
   ensure_local_package_exists "${package_root}" "@tsonic/${package_name}"
+  mkdir -p "${scope_dir}"
 
   rm -rf "${destination}"
   ln -s "${package_root}" "${destination}"
@@ -42,10 +58,7 @@ link_local_package() {
 overlay_local_first_party_packages() {
   local install_root="${1:-${CLICKMETER_ROOT}}"
 
-  if [[ ! -d "${install_root}/node_modules/@tsonic" ]]; then
-    echo "FAIL: expected @tsonic scope directory missing: ${install_root}/node_modules/@tsonic" >&2
-    exit 1
-  fi
+  ensure_npm_install "${install_root}"
 
   echo "=== overlay local first-party packages: ${install_root} ==="
   link_local_package "${install_root}" aspnetcore "${LOCAL_ASPNETCORE_PACKAGE}"
