@@ -7,7 +7,7 @@ import type { TopRow } from "./clickmeter-db.ts";
 
 class CounterBucket {
   pageviews: int = 0;
-  readonly visitors: HashSet<string> = new HashSet<string>();
+  visitors: HashSet<string> = new HashSet<string>();
 }
 
 export const topByKey = (

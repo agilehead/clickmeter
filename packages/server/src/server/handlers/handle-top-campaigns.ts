@@ -21,7 +21,7 @@ export const handleTopCampaigns = async (app: AppContext, ctx: HttpContext): Pro
   }
 
   const auth = await requireReadKey(app.db, ctx);
-  if ("error" in auth) {
+  if (auth.kind === "error") {
     await auth.error;
     return;
   }
