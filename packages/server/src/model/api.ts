@@ -1,4 +1,5 @@
 import { int } from "@tsonic/core/types.js";
+import type { IntRecord, StringRecord } from "../json/record-entries.ts";
 
 export interface ScopeRef {
   type: string;
@@ -78,7 +79,7 @@ export interface IngestAck {
 export interface ErrorInfo {
   code: string;
   message: string;
-  details?: Record<string, string>;
+  details?: StringRecord;
 }
 
 export interface ErrorResponse {
@@ -127,14 +128,12 @@ export interface CampaignsResponse {
   rows: CampaignRow[];
 }
 
-export interface MetricsTotals {
-  [metric: string]: int;
-}
+export type MetricsTotals = IntRecord;
 
 export interface MetricsRow {
   bucket?: string;
-  group?: Record<string, string>;
-  metrics: MetricsTotals;
+  group?: StringRecord;
+  metrics: IntRecord;
 }
 
 export interface MetricsResponse {
@@ -146,7 +145,7 @@ export interface MetricsResponse {
   group_by: string[];
   filters: Record<string, string[]>;
   rows: MetricsRow[];
-  totals: MetricsTotals;
+  totals: IntRecord;
 }
 
 export interface AdminCreatePropertyRequest {

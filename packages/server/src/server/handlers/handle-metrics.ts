@@ -67,7 +67,7 @@ export const handleMetrics = async (app: AppContext, ctx: HttpContext): Promise<
   }
 
   const auth = await requireReadKey(app.db, ctx);
-  if ("error" in auth) {
+  if (auth.kind === "error") {
     await auth.error;
     return;
   }
@@ -161,19 +161,28 @@ export const handleMetrics = async (app: AppContext, ctx: HttpContext): Promise<
       if (row.bucket !== undefined) w.WriteString("bucket", row.bucket);
       if (row.group !== undefined) {
         w.WriteStartObject("group");
-        for (const k in row.group) w.WriteString(k, row.group[k]);
+        for (let j = 0; j < row.group.Length; j++) {
+          const entry = row.group[j];
+          w.WriteString(entry.key, entry.value);
+        }
         w.WriteEndObject();
       }
 
       w.WriteStartObject("metrics");
-      for (const k in row.metrics) w.WriteNumber(k, row.metrics[k]);
+      for (let j = 0; j < row.metrics.Length; j++) {
+        const entry = row.metrics[j];
+        w.WriteNumber(entry.key, entry.value);
+      }
       w.WriteEndObject();
       w.WriteEndObject();
     }
     w.WriteEndArray();
 
     w.WriteStartObject("totals");
-    for (const k in result.totals) w.WriteNumber(k, result.totals[k]);
+    for (let i = 0; i < result.totals.Length; i++) {
+      const entry = result.totals[i];
+      w.WriteNumber(entry.key, entry.value);
+    }
     w.WriteEndObject();
     w.WriteEndObject();
   });

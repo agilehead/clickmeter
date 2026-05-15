@@ -2,7 +2,15 @@ import type { int, long } from "@tsonic/core/types.js";
 import { defaultof, out } from "@tsonic/core/lang.js";
 import { Dictionary, HashSet, List } from "@tsonic/dotnet/System.Collections.Generic.js";
 
-import type { MetricsRow as ApiMetricsRow, MetricsTotals } from "../model/api.ts";
+import type { MetricsRow as ApiMetricsRow } from "../model/api.ts";
+import {
+  getIntRecordEntry,
+  setIntRecordEntry,
+  setStringRecordEntry,
+  type IntRecordEntry,
+  type StringRecord,
+  type StringRecordEntry,
+} from "../json/record-entries.ts";
 import type { ClickmeterDbContext } from "./context.ts";
 import type { Event as EventEntity } from "./entities.ts";
 import type { GroupByKey, MetricName, MetricsQuery, MetricsResult } from "./clickmeter-db.ts";
@@ -31,39 +39,51 @@ export const queryMetrics = async (
   }
 
   // Totals (computed in DB)
-  const totals: Record<string, int> = {};
+  const totals = new List<IntRecordEntry>();
   for (let i = 0; i < query.metrics.Length; i++) {
     const m = query.metrics[i];
     if (m === "pageviews") {
-      totals[m] = await db0.Events
-        .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
-        .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
-        .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
-        .Where((e) => scopeType === undefined || e.ScopeType === scopeType)
-        .Where((e) => scopeId === undefined || e.ScopeId === scopeId)
-        .CountAsync();
+      setIntRecordEntry(
+        totals,
+        m,
+        await db0.Events
+          .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
+          .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
+          .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
+          .Where((e) => scopeType === undefined || e.ScopeType === scopeType)
+          .Where((e) => scopeId === undefined || e.ScopeId === scopeId)
+          .CountAsync()
+      );
     } else if (m === "unique_visitors") {
-      totals[m] = await db0.Events
-        .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
-        .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
-        .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
-        .Where((e) => scopeType === undefined || e.ScopeType === scopeType)
-        .Where((e) => scopeId === undefined || e.ScopeId === scopeId)
-        .Where((e) => e.VisitorId !== undefined && e.VisitorId !== "")
-        .Select((e) => e.VisitorId!)
-        .Distinct()
-        .CountAsync();
+      setIntRecordEntry(
+        totals,
+        m,
+        await db0.Events
+          .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
+          .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
+          .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
+          .Where((e) => scopeType === undefined || e.ScopeType === scopeType)
+          .Where((e) => scopeId === undefined || e.ScopeId === scopeId)
+          .Where((e) => e.VisitorId !== undefined && e.VisitorId !== "")
+          .Select((e) => e.VisitorId!)
+          .Distinct()
+          .CountAsync()
+      );
     } else if (m === "sessions") {
-      totals[m] = await db0.Events
-        .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
-        .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
-        .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
-        .Where((e) => scopeType === undefined || e.ScopeType === scopeType)
-        .Where((e) => scopeId === undefined || e.ScopeId === scopeId)
-        .Where((e) => e.SessionId !== undefined && e.SessionId !== "")
-        .Select((e) => e.SessionId!)
-        .Distinct()
-        .CountAsync();
+      setIntRecordEntry(
+        totals,
+        m,
+        await db0.Events
+          .Where((e) => e.PropertyId === propertyId0 && e.Ts >= fromMs && e.Ts < toMsExclusive)
+          .Where((e) => !hasPaths || (e.Path !== undefined && paths.Contains(e.Path!)))
+          .Where((e) => campaignId === undefined || e.CampaignId === campaignId)
+          .Where((e) => scopeType === undefined || e.ScopeType === scopeType)
+          .Where((e) => scopeId === undefined || e.ScopeId === scopeId)
+          .Where((e) => e.SessionId !== undefined && e.SessionId !== "")
+          .Select((e) => e.SessionId!)
+          .Distinct()
+          .CountAsync()
+      );
     }
   }
 
@@ -77,7 +97,7 @@ export const queryMetrics = async (
     .ToArrayAsync();
 
   const rows = groupMetrics(events, query.metrics, query.groupBy, query.limit);
-  return { rows, totals };
+  return { rows, totals: totals.ToArray() };
 };
 
 type MetricCounter = {
@@ -87,12 +107,12 @@ type MetricCounter = {
 };
 
 class MetricBucket implements MetricCounter {
-  readonly group: Record<string, string>;
+  group: StringRecord;
   pageviews: int = 0;
   visitors: HashSet<string> = new HashSet<string>();
   sessions: HashSet<string> = new HashSet<string>();
 
-  constructor(group: Record<string, string>) {
+  constructor(group: StringRecord) {
     this.group = group;
   }
 }
@@ -110,7 +130,7 @@ const groupMetrics = (
   for (let i = 0; i < events.Length; i++) {
     const e = events[i];
 
-    const group: Record<string, string> = {};
+    const group = new List<StringRecordEntry>();
     let key = "";
     for (let j = 0; j < groupBy.Length; j++) {
       const g = groupBy[j];
@@ -120,13 +140,13 @@ const groupMetrics = (
       else if (g === "scope_type") value = e.ScopeType ?? "";
       else if (g === "scope_id") value = e.ScopeId ?? "";
 
-      group[g] = value;
+      setStringRecordEntry(group, g, value);
       key += `${g}=${value}\u001f`;
     }
 
     let bucket = defaultof<MetricBucket>();
     if (!map.TryGetValue(key, out(bucket))) {
-      bucket = new MetricBucket(group);
+      bucket = new MetricBucket(group.ToArray());
       map.Add(key, bucket);
     }
 
@@ -142,23 +162,23 @@ const groupMetrics = (
   while (iter.MoveNext()) {
     const pair = iter.Current;
     const group = pair.Value.group;
-    const metricsOut: MetricsTotals = {};
+    const metricsOut = new List<IntRecordEntry>();
     for (let j = 0; j < metrics.Length; j++) {
       const m = metrics[j];
-      if (m === "pageviews") metricsOut[m] = pair.Value.pageviews;
-      else if (m === "unique_visitors") metricsOut[m] = pair.Value.visitors.Count;
-      else if (m === "sessions") metricsOut[m] = pair.Value.sessions.Count;
+      if (m === "pageviews") setIntRecordEntry(metricsOut, m, pair.Value.pageviews);
+      else if (m === "unique_visitors") setIntRecordEntry(metricsOut, m, pair.Value.visitors.Count);
+      else if (m === "sessions") setIntRecordEntry(metricsOut, m, pair.Value.sessions.Count);
     }
 
-    rows.Add({ group, metrics: metricsOut });
+    rows.Add({ group, metrics: metricsOut.ToArray() });
   }
 
   const arr = rows.ToArray();
   // Desc by pageviews if present
   for (let i = 0; i < arr.Length; i++) {
     for (let j = i + 1; j < arr.Length; j++) {
-      const a = arr[i].metrics["pageviews"] ?? 0;
-      const b = arr[j].metrics["pageviews"] ?? 0;
+      const a = getIntRecordEntry(arr[i].metrics, "pageviews") ?? 0;
+      const b = getIntRecordEntry(arr[j].metrics, "pageviews") ?? 0;
       if (b > a) {
         const tmp = arr[i];
         arr[i] = arr[j];

@@ -8,10 +8,12 @@ import { getBearerToken } from "./get-bearer-token.ts";
 import { serializeError } from "./serialize-error.ts";
 
 export interface ReadKeyAuthOk {
+  kind: "ok";
   property_id: string;
 }
 
 export interface ReadKeyAuthError {
+  kind: "error";
   error: Task;
 }
 
@@ -19,11 +21,19 @@ export type ReadKeyAuthResult = ReadKeyAuthOk | ReadKeyAuthError;
 
 export const requireReadKey = async (db: ClickmeterDb, ctx: HttpContext): Promise<ReadKeyAuthResult> => {
   const token = getBearerToken(ctx);
-  if (!token) return { error: writeJson(ctx.Response, 401, serializeError("unauthorized", "Missing bearer token")) };
+  if (!token) {
+    return {
+      kind: "error",
+      error: writeJson(ctx.Response, 401, serializeError("unauthorized", "Missing bearer token")),
+    };
+  }
 
   const key = await db.lookupKey(token);
   if (!key || key.kind !== "read") {
-    return { error: writeJson(ctx.Response, 401, serializeError("unauthorized", "Invalid read key")) };
+    return {
+      kind: "error",
+      error: writeJson(ctx.Response, 401, serializeError("unauthorized", "Invalid read key")),
+    };
   }
-  return { property_id: key.property_id };
+  return { kind: "ok", property_id: key.property_id };
 };

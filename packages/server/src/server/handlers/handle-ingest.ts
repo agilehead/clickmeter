@@ -10,9 +10,13 @@ import { readRequestBodyAsync } from "../../http/read-request-body-async.ts";
 import { writeJson } from "../../http/write-json.ts";
 import { jsonStringify } from "../../json/json-stringify.ts";
 import { parseJsonRoot } from "../../json/parse-json-root.ts";
+import {
+  copyStringRecordEntries,
+  type StringRecord,
+  type StringRecordEntry,
+} from "../../json/record-entries.ts";
 import { stringifyStringRecord } from "../../json/stringify-string-record.ts";
 import type { InsertEvent } from "../../db/clickmeter-db.ts";
-import type { KeyRecord } from "../../db/clickmeter-db.ts";
 import { getBearerToken } from "../lib/get-bearer-token.ts";
 import { getOrigin } from "../lib/get-origin.ts";
 import { serializeError } from "../lib/serialize-error.ts";
@@ -29,18 +33,14 @@ const parseIsoOrNowUnixMs = (value: string | undefined): long => {
 };
 
 const mergeDims = (
-  base: Record<string, string> | undefined,
-  overlay: Record<string, string> | undefined
-): Record<string, string> | undefined => {
+  base: readonly StringRecordEntry[] | undefined,
+  overlay: readonly StringRecordEntry[] | undefined
+): StringRecord | undefined => {
   if (base === undefined && overlay === undefined) return undefined;
-  const merged: Record<string, string> = {};
-  if (base) {
-    for (const k in base) merged[k] = base[k];
-  }
-  if (overlay) {
-    for (const k in overlay) merged[k] = overlay[k];
-  }
-  return merged;
+  const merged = new List<StringRecordEntry>();
+  if (base) copyStringRecordEntries(base, merged);
+  if (overlay) copyStringRecordEntries(overlay, merged);
+  return merged.ToArray();
 };
 
 const getOptionalObject = (obj: JsonElement, name: string): JsonElement => {
@@ -63,10 +63,10 @@ const getOptionalString = (obj: JsonElement, name: string): string | undefined =
   }
 };
 
-const readStringRecord = (obj: JsonElement): Record<string, string> | undefined => {
+const readStringRecord = (obj: JsonElement): StringRecord | undefined => {
   if (obj.ValueKind !== JsonValueKind.Object) return undefined;
 
-  const out: Record<string, string> = {};
+  const out = new List<StringRecordEntry>();
   const e = obj.EnumerateObject();
   try {
     while (e.MoveNext()) {
@@ -74,13 +74,13 @@ const readStringRecord = (obj: JsonElement): Record<string, string> | undefined 
       const v = p.Value;
       if (v.ValueKind === JsonValueKind.String) {
         const s = v.GetString();
-        if (s !== null) out[p.Name] = s;
+        if (s !== null) out.Add({ key: p.Name, value: s });
       }
     }
   } finally {
     e.Dispose();
   }
-  return out;
+  return out.ToArray();
 };
 
 const serializeIngestAck = (accepted: int, rejected: int, deduped: int, errors: readonly IngestErrorItem[]): string => {
@@ -118,10 +118,14 @@ export const handleIngest = async (app: AppContext, ctx: HttpContext): Promise<v
     return;
   }
 
-  await handleIngestBody(app, ctx, key);
+  await handleIngestBody(app, ctx, key.property_id);
 };
 
-const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecord): Promise<void> => {
+const handleIngestBody = async (
+  app: AppContext,
+  ctx: HttpContext,
+  keyPropertyId: string
+): Promise<void> => {
   const { db } = app;
 
   const body = await readRequestBodyAsync(ctx);
@@ -159,7 +163,7 @@ const handleIngestBody = async (app: AppContext, ctx: HttpContext, key: KeyRecor
 
   const propertyIdTrimmed = propertyId.Trim();
 
-  if (propertyIdTrimmed !== key.property_id) {
+  if (propertyIdTrimmed !== keyPropertyId) {
     await writeJson(
       ctx.Response,
       403,

@@ -11,6 +11,7 @@ import { ApiKey, Event, EventDim, PropertyRow } from "./entities.ts";
 import type { DbContextOptions } from "@tsonic/efcore/Microsoft.EntityFrameworkCore.js";
 import { createDbOptions } from "./options.ts";
 import type { MetricsRow as ApiMetricsRow, MetricsTotals, OverviewTotals } from "../model/api.ts";
+import type { StringRecord } from "../json/record-entries.ts";
 import { parseStringArray } from "../json/parse-string-array.ts";
 import { stringifyStringArray } from "../json/stringify-string-array.ts";
 import { queryMetrics as runQueryMetrics } from "./query-metrics.ts";
@@ -58,7 +59,7 @@ export type InsertEvent = {
   readonly scope_id?: string;
 
   readonly data_json?: string;
-  readonly dims?: Record<string, string>;
+  readonly dims?: StringRecord;
   readonly dims_json?: string;
 
   readonly user_agent?: string;
@@ -111,13 +112,13 @@ const randomKey = (): string => Guid.NewGuid().ToString("N");
 const normalizeOrigin = (origin: string): string => origin.Trim().ToLowerInvariant();
 
 export class ClickmeterDb {
-  private readonly options: DbContextOptions;
+  options: DbContextOptions;
 
   constructor(dbPath: string) {
     this.options = createDbOptions(dbPath);
   }
 
-  private open(): ClickmeterDbContext {
+  open(): ClickmeterDbContext {
     return new ClickmeterDbContextCtor(this.options);
   }
 
@@ -269,9 +270,9 @@ export class ClickmeterDb {
 
         const dims = e.dims;
         if (dims) {
-          for (const k in dims) {
-            const raw = dims[k];
-            if (typeof raw !== "string") continue;
+          for (let dimIndex = 0; dimIndex < dims.Length; dimIndex++) {
+            const entry = dims[dimIndex];
+            const raw = entry.value;
             const v = raw.Trim();
             if (v === "") continue;
 
@@ -279,7 +280,7 @@ export class ClickmeterDb {
             dim.PropertyId = propertyId0;
             dim.EventId = e.event_id;
             dim.Event = row;
-            dim.Key = k;
+            dim.Key = entry.key;
             dim.Value = v;
             db.EventDims.Add(dim);
           }
